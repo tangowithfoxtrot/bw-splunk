@@ -1,3 +1,4 @@
+import configparser # remove this later
 import datetime
 import os
 import toml
@@ -32,8 +33,9 @@ class AppSettings:
         ) + datetime.timedelta(days=-365)  # 1 year ago
 
     @property
-    def SplunkEnvironment(self):
-        return self.SplunkHome is not None and self.SplunkSessionKey is not None
+    def SplunkEnvironment(self) -> bool:
+        return bool(self.SplunkHome and self.SplunkSessionKey and not (
+            self.SplunkHome.isspace() or self.SplunkSessionKey.isspace()))
 
     @staticmethod
     def load():
@@ -43,20 +45,26 @@ class AppSettings:
 
     def loadFromFile(self):
         if self.SplunkEnvironment:
+            SplunkHome = os.path.abspath(self.SplunkHome.encode('utf-8'))
             appSettingsFile = os.path.join(
-                self.SplunkHome,
-                "etc",
-                "apps",
-                "bitwarden_events",
-                "local",
-                "script.conf")
+                SplunkHome,
+                b"etc",
+                b"apps",
+                b"bitwarden_event_logs",
+                b"local",
+                b"script.conf")
+
             try:
                 with open(appSettingsFile, "r") as file:
                     appSettings = toml.load(file)
             except FileNotFoundError:
                 print(f"AppSettings: {appSettingsFile} not found")
 
-            config = appSettings['config']
+            try:
+                config = appSettings['config']
+            except KeyError:
+                print("AppSettings: [config] section not found")
+                return self
             if 'splunkApiUrl' in config:
                 self.SplunkApiUrl = config['splunkApiUrl']
             if 'splunkUsername' in config:
@@ -71,8 +79,11 @@ class AppSettings:
             if 'identityUrl' in config:
                 self.IdentityUrl = config['identityUrl']
         else:
-            input(f"Splunk Username: {self.SplunkUsername}")
-            input(f"Splunk Password: {self.SplunkPassword}")
+            appSettingsFile = ""
+            config = configparser.ConfigParser()
+            config.read(".env")
+            self.SplunkUsername = config["DEFAULT"]["SPLUNK_USERNAME"]
+            self.SplunkPassword = config["DEFAULT"]["SPLUNK_PASSWORD"]
 
         return self
 
