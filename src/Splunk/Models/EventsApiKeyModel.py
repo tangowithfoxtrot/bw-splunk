@@ -12,8 +12,8 @@ class EventsApiKeyModel:
     def __str__(self):
         return f"{self.ClientId}_{self.ClientSecret}"
 
-    def get_clientId(self):
+    def getClientId(self):
         return self.ClientId
     
-    def get_clientSecret(self):
+    def getClientSecret(self):
         return self.ClientSecret
