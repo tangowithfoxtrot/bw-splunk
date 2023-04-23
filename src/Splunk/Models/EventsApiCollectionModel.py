@@ -12,17 +12,29 @@ class EventsApiCollectionModel:
         self.key = _key
         self.user = _user
 
-    def getLastLogDate(self):
+    @property
+    def lastLogDate(self):
         return self.lastLogDate
     
-    def setLastLogDate(self, last_log_date): # maybe not needed
-        self.lastLogDate = last_log_date
+    @lastLogDate.setter
+    def lastLogDate(self, value):
+        self.lastLogDate = value
 
-    def getKey(self):
+    @property
+    def key(self):
         return self.key
     
-    def getUser(self):
+    @key.setter
+    def key(self, value):
+        self.key = value
+
+    @property
+    def user(self):
         return self.user
+    
+    @user.setter
+    def user(self, value):
+        self.user = value
     
     def __str__(self):
         return f"LastLogDate: {self.lastLogDate}, Key: {self.key}, User: {self.user}"
