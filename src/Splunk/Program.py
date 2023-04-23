@@ -31,7 +31,6 @@ class Program:
         appSettings = AppSettings()
 
         if appSettings.SplunkEnvironment:
-            # _eventsApiKey = EventsApiKeyModel(API_KEY)
             logging.basicConfig(
                 level=logging.INFO,
                 format='%(asctime)s [%(levelname)s] %(message)s',
