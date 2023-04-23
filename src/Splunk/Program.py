@@ -55,8 +55,8 @@ class Program:
                 self._logger.error("Cannot resolve events API key")
                 _eventsApiKey = EventsApiKeyModel(API_KEY)
                 return # ?
-            _key = "64421adf537747506913b9e1" # pull this from Splunk
-            lastLogDate = await splunkApi.GetLastLogDateAsync()  # just testing for now
+            _key = "64421adf537747506913b9e1" # magic number; pull this from Splunk
+            lastLogDate = await splunkApi.GetLastLogDateAsync() # just testing for now
             await splunkApi.UpsertLastLogDateAsync(_key, lastLogDate) # just testing for now
         else:
             _eventsApiKey = EventsApiKeyModel(API_KEY)
