@@ -6,7 +6,10 @@ import sys
 from typing import List
 from AppSettings import AppSettings
 from Models.EventsApiKeyModel import EventsApiKeyModel
+from Models.MemberResponseModel import MemberResponseModel
+
 import configparser
+from BitwardenApi import BitwardenApi
 
 from SplunkApi import SplunkApi
 
@@ -21,6 +24,7 @@ else:
     api_key = os.environ.get("API_KEY")
 
 API_KEY = api_key
+
 
 class Program:
     def __init__(self):
@@ -53,16 +57,35 @@ class Program:
             if _eventsApiKey is None:
                 self._logger.error("Cannot resolve events API key")
                 _eventsApiKey = EventsApiKeyModel(API_KEY)
-                return # ?
-            _key = "64421adf537747506913b9e1" # magic number; pull this from Splunk
-            lastLogDate = await splunkApi.GetLastLogDateAsync() # just testing for now
-            await splunkApi.UpsertLastLogDateAsync(_key, lastLogDate) # just testing for now
+                return  # ?
+            lastLogDate, key = await splunkApi.GetLastLogDateAsync()
+            await splunkApi.UpsertLastLogDateAsync(lastLogDate, str(key))
         else:
             _eventsApiKey = EventsApiKeyModel(API_KEY)
-            self._logger.debug("Cannot call Splunk API; using environment variables")
+            self._logger.debug(
+                "Cannot call Splunk API; using environment variables")
+        #############################
+
+        accessToken = await splunkApi.GetApiKeyAsync()
+        accessTokenString = accessToken.__str__()
+        if accessToken is None:
+            self._logger.error("Cannot resolve Bitwarden API key")
+            return
+
+        bitwardenApi = BitwardenApi(
+            accessToken=accessTokenString,
+            appSettings=appSettings,
+            eventsApiKey=_eventsApiKey,
+            logger=self._logger,
+            splunkApi=splunkApi)
+
+        self._logger.debug("Getting logs from Bitwarden")
+        eventLogs = await bitwardenApi.PrintEventLogsAsync()
+        print(f"\n\n\nEventLogs: \n\n\n", eventLogs)
 
     def main(self, args: List[str]):
         asyncio.run(self.main_async(args))
+
 
 if __name__ == "__main__":
     program = Program()
