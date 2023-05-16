@@ -8,33 +8,33 @@ class EventsApiCollectionModel:
         public string User { get; set; }
     """
     def __init__(self, last_log_date=None, _key=None, _user=None):
-        self.lastLogDate = last_log_date
-        self.key = _key
-        self.user = _user
+        self._lastLogDate = last_log_date
+        self._key = _key
+        self._user = _user
 
     @property
     def lastLogDate(self):
-        return self.lastLogDate
+        return self._lastLogDate
     
     @lastLogDate.setter
     def lastLogDate(self, value):
-        self.lastLogDate = value
+        self._lastLogDate = value
 
     @property
     def key(self):
-        return self.key
+        return self._key
     
     @key.setter
     def key(self, value):
-        self.key = value
+        self._key = value
 
     @property
     def user(self):
-        return self.user
+        return self._user
     
     @user.setter
     def user(self, value):
-        self.user = value
+        self._user = value
     
     def __str__(self):
-        return f"LastLogDate: {self.lastLogDate}, Key: {self.key}, User: {self.user}"
+        return f"LastLogDate: {self._lastLogDate}, Key: {self._key}, User: {self._user}"
