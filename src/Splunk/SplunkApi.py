@@ -3,13 +3,11 @@
 Splunk API client
 """
 
-import asyncio
 import datetime
 import logging
 import aiohttp
 import json
 import base64
-from urllib.parse import urlparse, urlunparse
 import xml.etree.ElementTree as ET
 from AppSettings import AppSettings
 from Models.EventsApiKeyModel import EventsApiKeyModel
@@ -47,7 +45,6 @@ class SplunkApi:
                     self._logger.error(f"Response: {response.status}")
                     return None
 
-    # -> Optional[EventsApiCollectionModel]:
     async def GetLastLogDateAsync(self):
         urlString = "{}".format(
             f"{self._appNS}/collections/data/eventsapi?output_mode=json"
@@ -61,11 +58,10 @@ class SplunkApi:
                     data = await response.json()
                     if data is None:
                         self._logger.debug("No last log date found in Splunk")
-                        # return current date minus 1 year
                         lastYear = datetime.datetime.now() - datetime.timedelta(days=365)
                         self._logger.debug(
                             f"Setting lastLogDate to last year: {lastYear}")
-                        return lastYear
+                        return (lastYear, None)
                     else:
                         self._logger.debug("Got last log date from Splunk API")
                         date = sorted(
@@ -73,23 +69,20 @@ class SplunkApi:
                             key=lambda k: k['_key'],
                             reverse=True)[0]['last_log_date']
                         self._logger.debug(f"Last log date: {date}")
-                        # removing the 7th-digit of the microseconds; this
-                        # might be a problem later because the original
-                        # datetime is 7-digit microseconds, followed by "Z".
-                        # commenting-out for now because it may be fine to just
-                        # return a string here.
-                        # converted_date = datetime.datetime.strptime(
-                        #     (date[:26]).strip(), "%Y-%m-%dT%H:%M:%S.%f")
-                        # self._logger.debug(
-                            # f"Converted last log date: {converted_date}")
-                        return date
+                        key = sorted(
+                            data,
+                            key=lambda k: k['_key'],
+                            reverse=True)[0]['_key']
+                        self._logger.debug(f"Key: {key}")
+                        # TODO: return date as a datetime object if required
+                        return (date, key)
                 else:
                     self._logger.error(
                         "Error getting last log date from Splunk")
                     self._logger.error(f"Response: {response.status}")
-                    return None
+                    exit(1)
 
-    async def UpsertLastLogDateAsync(self, key: str, last_log_date: datetime.datetime) -> None:
+    async def UpsertLastLogDateAsync(self, last_log_date: datetime.datetime, key: str) -> None:
         urlString = "{}".format(
             f"{self._appNS}/collections/data/eventsapi/{key}?output_mode=json"
         )
@@ -97,8 +90,8 @@ class SplunkApi:
         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
             data = {"last_log_date": last_log_date}
 
-            curlCommand = f"curl -k '{urlString}' -X POST -H 'Authorization: Basic {self._authHeader.decode('utf-8')}' -H 'Content-Type: application/json' -d '{json.dumps(data)}'"
-            self._logger.debug(f"curl command: {curlCommand}")
+            # curlCommand = f"curl -k '{urlString}' -X POST -H 'Authorization: Basic {self._authHeader.decode('utf-8')}' -H 'Content-Type: application/json' -d '{json.dumps(data)}'"
+            # self._logger.debug(f"curl command: {curlCommand}")
             async with session.post(
                     urlString, headers={"Authorization": f"Basic {self._authHeader.decode('utf-8')}",
                                         "Content-Type": "application/json"},
@@ -123,10 +116,3 @@ class SplunkApi:
             return True
         else:
             return False
-
-    def _AddAuthorization(self, request_message: aiohttp.ClientSession):
-        # curl -k "$SPLUNK_API_URL/services/auth/login" --data-urlencode \
-        # username=$SPLUNK_USERNAME --data-urlencode password=$SPLUNK_PASSWORD
-        authHeader = base64.b64encode(
-            f"{self._appSettings.SplunkUsername}:{self._appSettings.SplunkPassword}".encode("utf-8"))
-        request_message.headers["Authorization"] = f"Basic {authHeader.decode('utf-8')}"

@@ -10,8 +10,6 @@ from SplunkApi import SplunkApi
 from Models.EventsApiKeyModel import EventsApiKeyModel
 from Models.EventRequestModel import EventRequestModel
 from Models.EventResponseModel import EventResponseModel
-from Models.MemberResponseModel import MemberResponseModel
-from Models.GroupResponseModel import GroupResponseModel
 from Models.EventLogModel import EventLogModel
 
 class BitwardenApi:
@@ -39,22 +37,6 @@ class BitwardenApi:
             "sort_keys": False
         }
 
-    _epoch = datetime(1970, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-
-    # async def authenticate(self):
-    #     payload = 'client_id=' + self._appSettings. + \
-    #         '&client_secret=' + self._appSettings.ClientSecret + \
-    #         '&grant_type=client_credentials&scope=api'
-    #     headers = {
-    #         'Content-Type': 'application/x-www-form-urlencoded',
-    #         'Accept': 'application/json'}
-
-    #     async with aiohttp.ClientSession() as session:
-    #         async with session.post(self._appSettings.IdentityUrl + "/connect/token", headers=headers, data=payload) as response:
-    #             response.raise_for_status()
-    #             response_json = await response.json()
-    #             return response_json['access_token']
-
     async def PrintEventLogsAsync(self):
         """
             public async Task PrintEventLogsAsync()
@@ -72,9 +54,8 @@ class BitwardenApi:
         requestModel.end = datetime.utcnow().replace(
             tzinfo=timezone.utc) + timedelta(hours=1)
 
-        # events is a dict
         events = await self._GetEventsAsync(requestModel, [])
-        if events is None or len(events) == 0:
+        if events is None or len(events['data']) == 0:
             return
 
         eventLogs = await self._HydrateEventsAsync(events or [])
@@ -85,25 +66,16 @@ class BitwardenApi:
             if key is None:
                 key = hashlib.sha256(lastEventDate.encode(
                     'utf-8')).hexdigest() if lastEventDate is not None else None
-                # it may be sufficient to just insert an empty string here;
-                # still not entirely sure where this key is derived from
-            # type: ignore
             await self._splunkApi.UpsertLastLogDateAsync(lastEventDate, key)
 
+        eventLogList = []
         for eventLog in eventLogs:
-            eventHash = hashlib.sha256(eventLog.date.encode(
-                'utf-8')).hexdigest() if eventLog.date is not None else None
-            self._logger.debug(f"Event: {eventLog}")
-            serializedEventLog = json.dumps(
-                eventLog.__dict__)
-            serializedEventLogHash = hashlib.sha256(
-                serializedEventLog.encode('utf-8')).hexdigest()
-            serializedEventLogHashBase64 = base64.b64encode(
-                serializedEventLogHash.encode()).decode()
-            # insert hash into event log
-            eventLogHash = serializedEventLogHashBase64
+            eventLog.hash = self.ComputeObjectHash(eventLog)
+            # self._logger.debug(f"Event: {eventLog}")
+            eventLogList.append(eventLog)
+            print("\n---\n{}".format(eventLog))
 
-            return eventLog
+        return eventLogList
 
     async def _GetEventsAsync(self, requestModel: EventRequestModel, responseModel: List[EventResponseModel]):
         """
@@ -139,34 +111,42 @@ class BitwardenApi:
                 raise Exception(
                     f"Failed to get events. Status code: {response.status}")
             responseModel = await response.json()
-            # do more stuff, probably
             return responseModel
 
-    async def _GetMembersAsync(self, memberResponse: List[MemberResponseModel]):
-        tokenStateReponse = await self._HandleTokenStateAsync()
-        if tokenStateReponse is None:
+    async def _GetMembersAsync(self):# -> List[MemberResponseModel]:
+        tokenStateResponse = await self._HandleTokenStateAsync()
+        if not tokenStateResponse:
             return None
-        responseList = memberResponse
-        urlString = f"{self._appSettings.EventsApiUrl}/public/members"
+
+        responseList = []
+
+        url = f"{self._appSettings.EventsApiUrl}/public/members"
         headers = {
             "Authorization": f"Bearer {self._accessToken}",
             "Accept": "application/json"
         }
 
-        async with self._apiClient.get(urlString, headers=headers) as response:
-            if response.status != 200:
-                self._logger.error(
-                    f"Failed to get members. Status code: {response.status}")
-                return None
-            responseModel = await response.json()
-            # do more stuff, probably
-            return responseModel
+        try:
+            async with self._apiClient.get(url, headers=headers) as response:
+                if response.status != 200:
+                    self._logger.error(
+                        f"Failed to get members. Status code: {response.status}")
+                    return None
 
-    async def _GetGroupsAsync(self, groupResponse: List[GroupResponseModel]):
+                responseModel = await response.json()
+                if responseModel and "data" in responseModel:
+                    responseList = responseModel["data"]
+
+        except Exception as e:
+            self._logger.error(e, "Failed to GET members.")
+            return None
+
+        return responseList
+
+    async def _GetGroupsAsync(self):
         tokenStateReponse = await self._HandleTokenStateAsync()
         if tokenStateReponse is None:
             return None
-        responseList = groupResponse
         urlString = f"{self._appSettings.EventsApiUrl}/public/groups"
         headers = {
             "Authorization": f"Bearer {self._accessToken}",
@@ -179,16 +159,16 @@ class BitwardenApi:
                     f"Failed to get groups. Status code: {response.status}")
                 return None
             responseModel = await response.json()
-            # do more stuff, probably
             return responseModel
 
     # -> List[EventLogModel]:
     async def _HydrateEventsAsync(self, events: List[EventResponseModel]):
-        """
-        take the events from the API and turn them into EventLogModels
-        """
-        eventData = events['data']
+        eventData = events['data'] # type: ignore
         eventLogs = []
+        members = await self._GetMembersAsync()
+        groups = await self._GetGroupsAsync()
+        if not events or len(eventData) == 0:
+            return eventLogs
 
         for event in eventData:
             event = EventResponseModel(
@@ -205,16 +185,31 @@ class BitwardenApi:
                 policyId=event['policyId']
             )
 
+            memberEmail = None
+            groupName = None
+            actingUserName = None
+            actingUserEmail = None
+            memberName = None
+
             if event.memberId is not None:
-                member = await self._GetMembersAsync(event.memberId)
-                event.memberId = member
+                # TODO: implement
+                pass
 
             if event.groupId is not None:
-                group = await self._GetGroupsAsync(event.groupId)
-                event.groupId = group
-                
+                # TODO: implement
+                pass
+
+            if event.actingUserId is not None:
+                # TODO: implement
+                pass
+
             eventLogModel = EventLogModel(event=event)
+            # TODO: implement
+
             eventLogs.append(eventLogModel)
+
+            jsonEvent = json.dumps(event, default=lambda o: o.__dict__, sort_keys=False, indent=4)
+            print(jsonEvent)
 
         return eventLogs
 
@@ -222,12 +217,6 @@ class BitwardenApi:
         """
             private async Task<bool> HandleTokenStateAsync()
         """
-
-        # if self._nextAuthAttempt is not None and datetime.utcnow() > self._nextAuthAttempt:
-        #     return False
-
-        # if self._accessToken is not None and self._accessToken != "" and not self._tokenNeedsRefresh:
-        #     return True
 
         clientId = self._eventsApiKey.getClientId()
         clientSecret = self._eventsApiKey.getClientSecret()
@@ -250,7 +239,7 @@ class BitwardenApi:
                 self._logger.error(
                     f"Failed to get access token. Status code: {response.status}")
                 self._nextAuthAttempt = datetime.utcnow() + timedelta(minutes=1)
-                return False
+                exit(1)
             responseModel = await response.json()
             self._accessToken = responseModel["access_token"]
             self._tokenNeedsRefresh = False
@@ -315,4 +304,7 @@ class BitwardenApi:
         """
             private static byte[] Base64UrlDecode(string input)
         """
-        return hashlib.sha256(eventResponseModel.__str__().encode()).digest()
+        # TODO: Implement
+        hashBytes = hashlib.sha256(
+            eventResponseModel.__str__().encode()).digest()
+        return base64.b64encode(hashBytes).decode()
