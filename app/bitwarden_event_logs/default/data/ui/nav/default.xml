@@ -1,0 +1,9 @@
+<nav search_view="search">
+  <view name="search" default='true' />
+  <collection label="Dashboards">
+    <view name="authentication_events_dashboard" />
+    <view name="vault_item_events_dashboard" />
+    <view name="organization_events_dashboard" />
+  </collection>
+  <view name="setup_page_dashboard"/>
+</nav>
