@@ -64,7 +64,7 @@ class AppSettings:
                 config = appSettings['config']
             except KeyError:
                 print("AppSettings: [config] section not found")
-                return self
+                exit(1)
             if 'splunkApiUrl' in config:
                 self.SplunkApiUrl = config['splunkApiUrl']
             if 'splunkUsername' in config:
