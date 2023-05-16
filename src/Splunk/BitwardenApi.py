@@ -304,7 +304,6 @@ class BitwardenApi:
         """
             private static byte[] Base64UrlDecode(string input)
         """
-        # TODO: Implement
         hashBytes = hashlib.sha256(
             eventResponseModel.__str__().encode()).digest()
         return base64.b64encode(hashBytes).decode()
