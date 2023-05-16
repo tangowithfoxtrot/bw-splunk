@@ -32,7 +32,7 @@ src/Splunk/Program.py cli
 3. Package application to test running from an actual Splunk environment.
 
 ## References
-- [Bitwarden Splunk Integration (C#)](bhttps://github.com/bitwarden/splunk)
+- [Bitwarden Splunk Integration (C#)](https://github.com/bitwarden/splunk)
 - [Bitwarden API](https://bitwarden.com/help/article/api/)
 - [Splunk API Documentation](https://docs.splunk.com/Documentation/Splunk/9.0.4/RESTREF/RESTprolog)
 - [Splunk SDK for Python](https://dev.splunk.com/enterprise/docs/devtools/python/sdk-python/)
