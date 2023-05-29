@@ -3,14 +3,15 @@ import logging
 from datetime import datetime, timedelta, timezone
 import base64
 import hashlib
-from typing import List, Optional
+from typing import List
 import aiohttp
 from AppSettings import AppSettings
 from SplunkApi import SplunkApi
 from Models.EventsApiKeyModel import EventsApiKeyModel
 from Models.EventRequestModel import EventRequestModel
-from Models.EventResponseModel import EventResponseModel
-from Models.EventLogModel import EventLogModel
+from Models.EventResponseModel import EventResponseModel, EventLogModel, EventEncoder
+from src.Splunk.Models import MemberResponseModel
+
 
 class BitwardenApi:
     def __init__(
@@ -18,23 +19,22 @@ class BitwardenApi:
             appSettings: AppSettings,
             logger: logging.Logger,
             eventsApiKey: EventsApiKeyModel,
-            accessToken: str,
             splunkApi: SplunkApi,
-            nextAuthAttempt: Optional[datetime] = None):
+    ):
         self._epoch = datetime(1970, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
         self._appSettings = appSettings
         self._logger = logger
         self._eventsApiKey = eventsApiKey
         self._nextAuthAttempt = None
-        self._accessToken = accessToken
         self._tokenNeedsRefresh = False
-        self._splunkApi = SplunkApi(appSettings, logger)
+        self._splunkApi = splunkApi
         self._apiClient = aiohttp.ClientSession()
         self._identityClient = aiohttp.ClientSession()
         self._jsonOptions = {
-            "indent": 4,
+            "default": lambda o: dict((key, value) for key, value in o.__dict__.items() if value),  # omit null values
             "separators": (",", ": "),
-            "sort_keys": False
+            "sort_keys": True,
+            "cls": EventEncoder,
         }
 
     async def PrintEventLogsAsync(self):
@@ -48,7 +48,8 @@ class BitwardenApi:
                 }
             }
         """
-        lastEventLog, key = await self._splunkApi.GetLastLogDateAsync() if self._splunkApi.CanCallApi() else (None, None)
+        lastEventLog, key = await self._splunkApi.GetLastLogDateAsync() if self._splunkApi.CanCallApi() else (
+            None, None)
         requestModel = EventRequestModel()
         requestModel.start = lastEventLog if lastEventLog is not None else None
         requestModel.end = datetime.utcnow().replace(
@@ -71,9 +72,9 @@ class BitwardenApi:
         eventLogList = []
         for eventLog in eventLogs:
             eventLog.hash = self.ComputeObjectHash(eventLog)
-            # self._logger.debug(f"Event: {eventLog}")
+            self._logger.debug(f"Event: {eventLog}")
             eventLogList.append(eventLog)
-            print("\n---\n{}".format(eventLog))
+            print(json.dumps(eventLog, **self._jsonOptions))
 
         return eventLogList
 
@@ -104,6 +105,7 @@ class BitwardenApi:
 
         # curlCommand = f"curl -X GET \"{urlString}\" -H \"Authorization: Bearer {self._accessToken}\" -H \"Accept: application/json\" -d \"start={params['start']}\" -d \"end={params['end']}\" -d \"continuationToken={params['continuationToken']}\""
         # self._logger.debug(f"curl command: {curlCommand}")
+        # TODO: fix unclosed client session
         async with self._apiClient.get(urlString, headers=headers, params=params) as response:
             if response.status != 200:
                 self._logger.error(
@@ -113,7 +115,7 @@ class BitwardenApi:
             responseModel = await response.json()
             return responseModel
 
-    async def _GetMembersAsync(self):# -> List[MemberResponseModel]:
+    async def _GetMembersAsync(self) -> List[MemberResponseModel]:
         tokenStateResponse = await self._HandleTokenStateAsync()
         if not tokenStateResponse:
             return None
@@ -147,23 +149,35 @@ class BitwardenApi:
         tokenStateReponse = await self._HandleTokenStateAsync()
         if tokenStateReponse is None:
             return None
+
+        responseList = []
+
         urlString = f"{self._appSettings.EventsApiUrl}/public/groups"
         headers = {
             "Authorization": f"Bearer {self._accessToken}",
             "Accept": "application/json"
         }
 
-        async with self._apiClient.get(urlString, headers=headers) as response:
-            if response.status != 200:
-                self._logger.error(
-                    f"Failed to get groups. Status code: {response.status}")
-                return None
-            responseModel = await response.json()
-            return responseModel
+        try:
+            async with self._apiClient.get(urlString, headers=headers) as response:
+                if response.status != 200:
+                    self._logger.error(
+                        f"Failed to get groups. Status code: {response.status}")
+                    return None
 
-    # -> List[EventLogModel]:
-    async def _HydrateEventsAsync(self, events: List[EventResponseModel]):
-        eventData = events['data'] # type: ignore
+                responseModel = await response.json()
+                if responseModel and "data" in responseModel:
+                    responseList = responseModel["data"]
+
+        except Exception as e:
+            self._logger.error(e, "Failed to GET groups.")
+            return None
+
+        return responseList
+
+    async def _HydrateEventsAsync(self, events: List[EventResponseModel]) -> List[EventLogModel]:
+
+        eventData = events['data']  # type: ignore
         eventLogs = []
         members = await self._GetMembersAsync()
         groups = await self._GetGroupsAsync()
@@ -192,24 +206,54 @@ class BitwardenApi:
             memberName = None
 
             if event.memberId is not None:
-                # TODO: implement
-                pass
+                # members = await self._GetMembersAsync()
+                member = next(
+                    (m for m in members if m['id'] == event.memberId), None)
+                memberEmail = member['email'] if member is not None else None
+                memberName = member['name'] if member is not None else None
 
             if event.groupId is not None:
-                # TODO: implement
-                pass
+                # groups = await self._GetGroupsAsync()
+                group = next(
+                    (g for g in groups if g['id'] == event.groupId), None)
+                groupName = group['name'] if group is not None else None
 
             if event.actingUserId is not None:
-                # TODO: implement
-                pass
+                # members = await self._GetMembersAsync()
+                member = next(
+                    (m for m in members if m['userId'] == event.actingUserId), None)
+                actingUserName = member['name'] if member is not None else None
+                actingUserEmail = member['email'] if member is not None else None
 
-            eventLogModel = EventLogModel(event=event)
-            # TODO: implement
+            if event.hash is None:
+                event.hash = self.ComputeObjectHash(event)
+
+            eventLogModel = EventLogModel(
+                hash=event.hash,
+                type=event.type,
+                actingUserId=event.actingUserId,
+                installationId=event.installationId,
+                date=event.date,
+                device=event.device,
+                ipAddress=event.ipAddress,
+                itemId=event.itemId,
+                collectionId=event.collectionId,
+                groupId=event.groupId,
+                memberId=event.memberId,
+                policyId=event.policyId
+            )
+            if memberEmail is not None:
+                eventLogModel.memberEmail = memberEmail
+            if groupName is not None:
+                eventLogModel.groupName = groupName
+            if actingUserName is not None:
+                eventLogModel.actingUserName = actingUserName
+            if actingUserEmail is not None:
+                eventLogModel.actingUserEmail = actingUserEmail
+            if memberName is not None:
+                eventLogModel.memberName = memberName
 
             eventLogs.append(eventLogModel)
-
-            jsonEvent = json.dumps(event, default=lambda o: o.__dict__, sort_keys=False, indent=4)
-            print(jsonEvent)
 
         return eventLogs
 
@@ -264,7 +308,7 @@ class BitwardenApi:
             exception = Exception("Token is null or empty")
             self._logger.error(exception)
             raise exception
-        parts = token.split(".")
+        parts = token.split()
         if len(parts) != 3:
             exception = Exception("Token must have 3 parts")
             self._logger.error(exception)
@@ -304,6 +348,15 @@ class BitwardenApi:
         """
             private static byte[] Base64UrlDecode(string input)
         """
+        # TODO: Implement
         hashBytes = hashlib.sha256(
-            eventResponseModel.__str__().encode()).digest()
+            eventResponseModel.to_str().encode()).digest()
         return base64.b64encode(hashBytes).decode()
+
+    @property
+    def apiClient(self):
+        return self._apiClient
+
+    @property
+    def identityClient(self):
+        return self._identityClient

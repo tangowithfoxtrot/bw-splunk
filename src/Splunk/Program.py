@@ -46,22 +46,20 @@ class Program:
             lastLogDate, key = await splunkApi.GetLastLogDateAsync()
             await splunkApi.UpsertLastLogDateAsync(lastLogDate, str(key))
 
-        accessToken = await splunkApi.GetApiKeyAsync()
-        accessTokenString = accessToken.__str__()
-        if accessToken is None:
-            self._logger.error("Cannot resolve Bitwarden API key")
-            return
-
         bitwardenApi = BitwardenApi(
-            accessToken=accessTokenString,
             appSettings=appSettings,
-            eventsApiKey=_eventsApiKey,  # type: ignore
+            eventsApiKey=_eventsApiKey,
+            splunkApi=splunkApi,
             logger=self._logger,
-            splunkApi=splunkApi)
+        )
 
         self._logger.debug("Getting logs from Bitwarden")
-        eventLogs = await bitwardenApi.PrintEventLogsAsync()
-        # TODO: finish this
+        await bitwardenApi.PrintEventLogsAsync()
+        # close = asyncio.create_task(bitwardenApi.CloseAsync())
+        # await close
+        await bitwardenApi.apiClient.close()
+        await bitwardenApi.identityClient.close()
+        self._logger.debug("Done getting logs from Bitwarden")
 
     def main(self, args: List[str]):
         asyncio.run(self.main_async(args))

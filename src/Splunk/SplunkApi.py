@@ -75,7 +75,7 @@ class SplunkApi:
                             reverse=True)[0]['_key']
                         self._logger.debug(f"Key: {key}")
                         # TODO: return date as a datetime object if required
-                        return (date, key)
+                        return date, key
                 else:
                     self._logger.error(
                         "Error getting last log date from Splunk")
@@ -110,7 +110,8 @@ class SplunkApi:
                     self._logger.error(
                         "Error updating last log date in Splunk")
                     self._logger.error(f"Response: {response.status}")
-
+            curlCommand = f"curl -k '{urlString}' -X POST -H 'Authorization: Basic {self._authHeader.decode('utf-8')}' -H 'Content-Type: application/json' -d '{json.dumps(data)}'"
+            # self._logger.debug(f"curl command: {curlCommand}")
     def CanCallApi(self) -> bool:
         if self._appSettings.SplunkApiUrl and self._appSettings.SplunkUsername and self._appSettings.SplunkPassword:
             return True
