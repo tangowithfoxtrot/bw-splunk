@@ -1,130 +1,132 @@
+import json
+from dataclasses import dataclass
+from typing import Any
+
+
+def to_str(x: Any) -> str:
+    x = str(x)
+    assert isinstance(x, str)
+    return x
+
+
+class EventEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (EventResponseModel, EventLogModel)):
+            return obj.to_dict()
+        return super().default(obj)
+
+
+@dataclass
 class EventResponseModel:
-    """
-        Type = e.Type;
-        ItemId = e.ItemId;
-        CollectionId = e.CollectionId;
-        GroupId = e.GroupId;
-        PolicyId = e.PolicyId;
-        MemberId = e.MemberId;
-        ActingUserId = e.ActingUserId;
-        InstallationId = e.InstallationId;
-        Date = e.Date;
-        Device = e.Device;
-        IpAddress = e.IpAddress;
-    """
+    hash: str = ""
+    type: str = ""
+    itemId: str = ""
+    collectionId: str = ""
+    groupId: str = ""
+    policyId: str = ""
+    memberId: str = ""
+    actingUserId: str = ""
+    installationId: str = ""
+    date: str = ""
+    device: str = ""
+    ipAddress: str = ""
 
-    def __init__(
-            self,
-            type=None,
-            itemId=None,
-            collectionId=None,
-            groupId=None,
-            policyId=None,
-            memberId=None,
-            actingUserId=None,
-            installationId=None,
-            date=None,
-            device=None,
-            ipAddress=None):
-        self._type = type
-        self._itemId = itemId
-        self._collectionId = collectionId
-        self._groupId = groupId
-        self._policyId = policyId
-        self._memberId = memberId
-        self._actingUserId = actingUserId
-        self._installationId = installationId
-        self._date = date
-        self._device = device
-        self._ipAddress = ipAddress
+    @staticmethod
+    def from_dict(obj: Any) -> 'EventResponseModel':
+        assert isinstance(obj, dict)
+        type = obj.get("type")
+        itemId = obj.get("itemId")
+        collectionId = obj.get("collectionId")
+        groupId = obj.get("groupId")
+        policyId = obj.get("policyId")
+        memberId = obj.get("memberId")
+        actingUserId = obj.get("actingUserId")
+        installationId = obj.get("installationId")
+        date = obj.get("date")
+        device = obj.get("device")
+        ipAddress = obj.get("ipAddress")
+        return EventResponseModel(type, itemId, collectionId, groupId, policyId, memberId, actingUserId, installationId,
+                                  date, device, ipAddress)
 
-    @property
-    def type(self):
-        return self._type
+    def to_dict(self) -> dict:
+        result: dict = {}
+        result["type"] = self.type
+        result["itemId"] = self.itemId
+        result["collectionId"] = self.collectionId
+        result["groupId"] = self.groupId
+        result["policyId"] = self.policyId
+        result["memberId"] = self.memberId
+        result["actingUserId"] = self.actingUserId
+        result["installationId"] = self.installationId
+        result["date"] = self.date
+        result["device"] = self.device
+        result["ipAddress"] = self.ipAddress
+        return result
 
-    @type.setter
-    def type(self, value):
-        self._type = value
-
-    @property
-    def itemId(self):
-        return self._itemId
-
-    @itemId.setter
-    def itemId(self, value):
-        self._itemId = value
-
-    @property
-    def collectionId(self):
-        return self._collectionId
-
-    @collectionId.setter
-    def collectionId(self, value):
-        self._collectionId = value
-
-    @property
-    def groupId(self):
-        return self._groupId
-
-    @groupId.setter
-    def groupId(self, value):
-        self._groupId = value
-
-    @property
-    def policyId(self):
-        return self._policyId
-
-    @policyId.setter
-    def policyId(self, value):
-        self._policyId = value
-
-    @property
-    def memberId(self):
-        return self._memberId
-
-    @memberId.setter
-    def memberId(self, value):
-        self._memberId = value
-
-    @property
-    def actingUserId(self):
-        return self._actingUserId
-
-    @actingUserId.setter
-    def actingUserId(self, value):
-        self._actingUserId = value
-
-    @property
-    def installationId(self):
-        return self._installationId
-
-    @installationId.setter
-    def installationId(self, value):
-        self._installationId = value
-
-    @property
-    def date(self):
-        return self._date
-
-    @date.setter
-    def date(self, value):
-        self._date = value
-
-    @property
-    def device(self):
-        return self._device
-
-    @device.setter
-    def device(self, value):
-        self._device = value
-
-    @property
-    def ipAddress(self):
-        return self._ipAddress
-
-    @ipAddress.setter
-    def ipAddress(self, value):
-        self._ipAddress = value
+    def to_str(self) -> str:
+        return json.dumps(self.to_dict())
 
     def __str__(self):
-        return f"type: {self.type}\nitemId: {self.itemId}\ncollectionId: {self.collectionId}\ngroupId: {self.groupId}\npolicyId: {self.policyId}\nmemberId: {self.memberId}\nactingUserId: {self.actingUserId}\ninstallationId: {self.installationId}\ndate: {self.date}\ndevice: {self.device}\nipAddress: {self.ipAddress}"
+        return self.to_str()
+
+
+@dataclass
+class EventLogModel(EventResponseModel):
+    hash: str = ""
+    groupName: str = ""
+    actingUserName: str = ""
+    actingUserEmail: str = ""
+    memberName: str = ""
+    memberEmail: str = ""
+
+    @staticmethod
+    def from_dict(obj: Any) -> 'EventLogModel':
+        assert isinstance(obj, dict)
+        hash = obj.get("hash")
+        type = obj.get("type")
+        itemId = obj.get("itemId")
+        collectionId = obj.get("collectionId")
+        groupId = obj.get("groupId")
+        policyId = obj.get("policyId")
+        memberId = obj.get("memberId")
+        actingUserId = obj.get("actingUserId")
+        installationId = obj.get("installationId")
+        date = obj.get("date")
+        device = obj.get("device")
+        ipAddress = obj.get("ipAddress")
+        groupName = obj.get("groupName")
+        actingUserName = obj.get("actingUserName")
+        actingUserEmail = obj.get("actingUserEmail")
+        memberName = obj.get("memberName")
+        memberEmail = obj.get("memberEmail")
+        return EventLogModel(hash, type, itemId, collectionId, groupId, policyId, memberId, actingUserId,
+                             installationId,
+                             date, device, ipAddress, groupName, actingUserName, actingUserEmail, memberName,
+                             memberEmail)
+
+    def to_dict(self) -> dict:
+        result: dict = {}
+        result["hash"] = self.hash
+        result["type"] = self.type
+        result["itemId"] = self.itemId
+        result["collectionId"] = self.collectionId
+        result["groupId"] = self.groupId
+        result["policyId"] = self.policyId
+        result["memberId"] = self.memberId
+        result["actingUserId"] = self.actingUserId
+        result["installationId"] = self.installationId
+        result["date"] = self.date
+        result["device"] = self.device
+        result["ipAddress"] = self.ipAddress
+        result["groupName"] = self.groupName
+        result["actingUserName"] = self.actingUserName
+        result["actingUserEmail"] = self.actingUserEmail
+        result["memberName"] = self.memberName
+        result["memberEmail"] = self.memberEmail
+        return result
+
+    def to_str(self) -> str:
+        return json.dumps(self.to_dict())
+
+    def __str__(self):
+        return self.to_str()
