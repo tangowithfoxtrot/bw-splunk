@@ -1,3 +1,9 @@
+import json
+from dataclasses import dataclass
+from typing import Any
+
+
+@dataclass
 class MemberResponseModel:
     """
         public Guid Id { get; set; }
@@ -12,108 +18,47 @@ class MemberResponseModel:
         public bool ResetPasswordEnrolled { get; set; }
     """
 
-    def __init__(
-            self,
-            id=None,
-            userId=None,
-            name=None,
-            email=None,
-            twoFactorEnabled=None,
-            status=None,
-            type=None,
-            accessAll=None,
-            externalId=None,
-            resetPasswordEnrolled=None):
-        self._id = id
-        self._userId = userId
-        self._name = name
-        self._email = email
-        self._twoFactorEnabled = twoFactorEnabled
-        self._status = status
-        self._type = type
-        self._accessAll = accessAll
-        self._externalId = externalId
-        self._resetPasswordEnrolled = resetPasswordEnrolled
+    id: str = ""
+    userId: str = ""
+    name: str = ""
+    email: str = ""
+    twoFactorEnabled: bool = False
+    status: int = 0
+    type: int = 0
+    accessAll: bool = False
+    externalId: str = ""
+    resetPasswordEnrolled: bool = False
 
-    @property
-    def id(self):
-        return self._id
+    @staticmethod
+    def from_dict(obj: Any) -> 'MemberResponseModel':
+        assert isinstance(obj, dict)
+        id = obj.get("id")
+        userId = obj.get("userId")
+        name = obj.get("name")
+        email = obj.get("email")
+        twoFactorEnabled = obj.get("twoFactorEnabled")
+        status = obj.get("status")
+        type = obj.get("type")
+        accessAll = obj.get("accessAll")
+        externalId = obj.get("externalId")
+        resetPasswordEnrolled = obj.get("resetPasswordEnrolled")
+        return MemberResponseModel(id, userId, name, email, twoFactorEnabled, status, type, accessAll, externalId,
+                                   resetPasswordEnrolled)
 
-    @id.setter
-    def id(self, value: str):
-        self._id = value
+    def to_dict(self) -> dict:
+        result: dict = {"id": self.id, "userId": self.userId, "name": self.name, "email": self.email,
+                        "twoFactorEnabled": self.twoFactorEnabled, "status": self.status, "type": self.type,
+                        "accessAll": self.accessAll, "externalId": self.externalId,
+                        "resetPasswordEnrolled": self.resetPasswordEnrolled}
+        return result
 
-    @property
-    def userId(self):
-        return self._userId
+    @staticmethod
+    def from_str(obj: str) -> 'MemberResponseModel':
+        assert isinstance(obj, str)
+        return MemberResponseModel.from_dict(json.loads(obj))
 
-    @userId.setter
-    def userId(self, value: str):
-        self._userId = value
-
-    @property
-    def name(self):
-        return self._name
-
-    @name.setter
-    def name(self, value: str):
-        self._name = value
-
-    @property
-    def email(self):
-        return self._email
-
-    @email.setter
-    def email(self, value: str):
-        self._email = value
-
-    @property
-    def twoFactorEnabled(self):
-        return self._twoFactorEnabled
-
-    @twoFactorEnabled.setter
-    def twoFactorEnabled(self, value: bool):
-        self._twoFactorEnabled = value
-
-    @property
-    def status(self):
-        return self._status
-
-    @status.setter
-    def status(self, value: str):
-        self._status = value
-
-    @property
-    def type(self):
-        return self._type
-
-    @type.setter
-    def type(self, value: str):
-        self._type = value
-
-    @property
-    def accessAll(self):
-        return self._accessAll
-
-    @accessAll.setter
-    def accessAll(self, value: bool):
-        self._accessAll = value
-
-    @property
-    def externalId(self):
-        return self._externalId
-
-    @externalId.setter
-    def externalId(self, value: str):
-        self._externalId = value
-
-    @property
-    def resetPasswordEnrolled(self):
-        return self._resetPasswordEnrolled
-
-    @resetPasswordEnrolled.setter
-    def resetPasswordEnrolled(self, value: bool):
-        self._resetPasswordEnrolled = value
+    def to_str(self) -> str:
+        return json.dumps(self.to_dict())
 
     def __str__(self):
-        return f"id: {self._id},\nuserId: {self._userId},\nname: {self._name},\nemail: {self._email},\ntwoFactorEnabled: {self._twoFactorEnabled},\nstatus: {self._status},\ntype: {self._type},\naccessAll: {self._accessAll},\nexternalId: {self._externalId},\nresetPasswordEnrolled: {self._resetPasswordEnrolled}"
+        return self.to_str()

@@ -1,3 +1,9 @@
+import json
+from dataclasses import dataclass
+from typing import Any
+
+
+@dataclass
 class GroupResponseModel:
     """
         public Guid Id { get; set; }
@@ -6,43 +12,31 @@ class GroupResponseModel:
         public string ExternalId { get; set; }
     """
 
-    def __init__(self):
-        self._id = None
-        self._name = None
-        self._accessAll = None
-        self._externalId = None
+    id: str = ""
+    name: str = ""
+    accessAll: bool = False
+    externalId: str = ""
 
-    @property
-    def id(self):
-        return self._id
-    
-    @id.setter
-    def id(self, value):
-        self._id = value
+    @staticmethod
+    def from_dict(obj: Any) -> 'GroupResponseModel':
+        assert isinstance(obj, dict)
+        id = obj.get("id")
+        name = obj.get("name")
+        accessAll = obj.get("accessAll")
+        externalId = obj.get("externalId")
+        return GroupResponseModel(id, name, accessAll, externalId)
 
-    @property
-    def name(self):
-        return self._name
-    
-    @name.setter
-    def name(self, value):
-        self._name = value
+    def to_dict(self) -> dict:
+        result: dict = {"id": self.id, "name": self.name, "accessAll": self.accessAll, "externalId": self.externalId}
+        return result
 
-    @property
-    def accessAll(self):
-        return self._accessAll
-    
-    @accessAll.setter
-    def accessAll(self, value):
-        self._accessAll = value
+    @staticmethod
+    def from_str(obj: str) -> 'GroupResponseModel':
+        assert isinstance(obj, str)
+        return GroupResponseModel.from_dict(json.loads(obj))
 
-    @property
-    def externalId(self):
-        return self._externalId
-    
-    @externalId.setter
-    def externalId(self, value):
-        self._externalId = value
+    def to_str(self) -> str:
+        return json.dumps(self.to_dict(), indent=2)
 
     def __str__(self):
-        return f"id: {self._id},\nname: {self._name},\naccessAll: {self._accessAll},\nexternalId: {self._externalId}"
+        return self.to_str()
